@@ -21,6 +21,8 @@ const char *password = "tugicamalo";
 // IPAddress gateway(192, 168, 0, 1);    // Set your gateway
 // IPAddress subnet(255, 255, 255, 0);   // Set your subnet mask
 
+// Misc
+
 void dmxReceived()
 {
   recv.dmx(cbuffer);
@@ -56,19 +58,19 @@ void timeOut()
 
 void dmxLoop(void *)
 {
-  for (;;)
+  while (true)
   {
     recv.update();
-    delay(1);
+    vTaskDelay(1);
   }
 }
 
 void ledLoop(void *)
 {
-  for (;;)
+  while (true)
   {
     FastLED.show();
-    delay(1);
+    vTaskDelay(1);
   }
 }
 
@@ -86,19 +88,55 @@ void statReportLoop(void *)
   }
 }
 
+void playIdleAnimation(void *)
+{
+  while (true)
+  {
+    cbuffer[((millis() / 10) % (NUM_LEDS * 3))] = 255;
+    cbuffer[((millis() / 10) % (NUM_LEDS * 3)) - 1] = 0;
+    vTaskDelay(5);
+  }
+}
+
+void checkNetwork(void *)
+{
+  while (true)
+  {
+    if (WiFi.status() != WL_CONNECTED)
+    {
+      TaskHandle_t animation = NULL;
+      Serial.println("Lost connection");
+      xTaskCreate(
+          playIdleAnimation, // Task function
+          "Animation",       // Name of the task (for debugging)
+          500,               // Stack size in words
+          NULL,              // Parameter passed to the task
+          2,                 // Task priority
+          &animation         // Handle to the task
+      );
+      while (WiFi.status() != WL_CONNECTED)
+      {
+        // WiFi.begin(ssid, password);
+        vTaskDelay(1000);
+      }
+      vTaskDelete(animation);
+    }
+    vTaskDelay(5);
+  }
+}
+
 void setup()
 {
   setCpuFrequencyMhz(240);
   Serial.begin(9600);
   // WiFi.config(local_IP, gateway, subnet);
-  delay(1000);
+  // vTaskDelay(1000);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(50);         // Wait for 500ms before checking again
-    Serial.print("."); // Print a dot to show progress
-  }
+  // while (WiFi.status() != WL_CONNECTED) {
+  //   vTaskDelay(50);              // Wait for 500ms before checking again
+  //   Serial.print(".");       // Print a dot to show progress
+  // }
 
   // esp_bluedroid_disable();
   // esp_bluedroid_deinit();
@@ -109,16 +147,17 @@ void setup()
   recv.callbackFramerate(framerate);
   recv.callbackTimeout(timeOut);
   recv.begin(1, true);
-  Serial.println("sACN start");
-  Serial.println(WiFi.localIP());
-  Serial.println(portNUM_PROCESSORS);
+  // Serial.println("sACN start");
+  // Serial.println(WiFi.localIP());
+  // Serial.println(portNUM_PROCESSORS);
   cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)cbuffer, NUM_LEDS);
   // cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>(leds, NUM_LEDS);
   // randomSeed(analogRead(0));
   // odd = true;
-  xTaskCreatePinnedToCore(dmxLoop, "DMX", 10000, NULL, 2 | portPRIVILEGE_BIT, NULL, 0);
-  xTaskCreatePinnedToCore(ledLoop, "LED", 10000, NULL, 2 | portPRIVILEGE_BIT, NULL, 0);
-  xTaskCreatePinnedToCore(statReportLoop, "status reporting", 10000, NULL, 2 | portPRIVILEGE_BIT, NULL, 0);
+  xTaskCreate(dmxLoop, "DMX", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(ledLoop, "LED", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
 }
 
 void loop()
@@ -139,7 +178,7 @@ void loop()
   //   }
   // }
   // FastLED.show();
-  // delay(50);
+  // vTaskDelay(50);
   // odd = !odd;
   vTaskDelete(NULL);
 }
