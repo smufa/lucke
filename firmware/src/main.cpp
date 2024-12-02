@@ -1,10 +1,12 @@
 #include <FastLED.h>
 #include "WiFi.h"
 #include "sACN.h"
+#include <ArduinoJson.h>
 
 // LED shit
 #define NUM_LEDS 100
 #define DATA_PIN 5
+#define UNIVERSE 1
 CLEDController *cled;
 CRGB leds[NUM_LEDS];
 uint8_t cbuffer[512];
@@ -15,6 +17,8 @@ WiFiUDP udp;
 Receiver recv(udp); // universe 1
 const char *ssid = "nLa";
 const char *password = "tugicamalo";
+
+int lastDMXFramerate = 0;
 // const char *ssid = "Smart Toilet";
 // const char *password = "bbbbbbbbb";
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
@@ -48,6 +52,7 @@ void framerate()
 {
   Serial.print("Framerate fps: ");
   Serial.println(recv.framerate());
+  lastDMXFramerate = recv.framerate();
 }
 
 void timeOut()
@@ -78,13 +83,21 @@ void statReportLoop(void *)
 {
   while (true)
   {
-    // once we know where we got the inital packet from, send data back to that IP address and port
-    udp.beginPacket("192.168.157.255", 12345);
-    // Just test touch pin - Touch0 is T0 which is on GPIO 4.
-    udp.printf("getHeapSize: %d, getFreeHeap: %d", ESP.getHeapSize(), ESP.getFreeHeap());
+    JsonDocument doc;
+    doc["universe"] = UNIVERSE;
+    doc["heap_size"] = ESP.getHeapSize();
+    doc["heap_free"] = ESP.getFreeHeap();
+    doc["local_ip"] = WiFi.localIP();
+    doc["ssid"] = WiFi.SSID();
+    doc["rssi"] = WiFi.RSSI();
+    doc["last_DMX_framerate"] = lastDMXFramerate;
+
+    udp.beginPacket(WiFi.broadcastIP(), 12345);
+
+    serializeJson(doc, udp);
     // udp.printf("heap %d, cycle: %d, chip cores: %d, PSram: %d, CPU Freq %d, heapsize: %d, maxHeap: %d, maxPSram: %d", ESP.getFreeHeap(), ESP.getCycleCount(), ESP.getChipCores(), ESP.getFreePsram(), ESP.getCpuFreqMHz(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMinFreePsram());
     udp.endPacket();
-    vTaskDelay(1000);
+    vTaskDelay(5000);
   }
 }
 
@@ -127,11 +140,13 @@ void checkNetwork(void *)
 
 void setup()
 {
-  setCpuFrequencyMhz(240);
   Serial.begin(9600);
   // WiFi.config(local_IP, gateway, subnet);
   // vTaskDelay(1000);
+  WiFi.useStaticBuffers(1);
+  WiFi.setScanMethod(WIFI_FAST_SCAN);
   WiFi.mode(WIFI_STA);
+  // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT40);
   WiFi.begin(ssid, password);
   // while (WiFi.status() != WL_CONNECTED) {
   //   vTaskDelay(50);              // Wait for 500ms before checking again
@@ -146,9 +161,9 @@ void setup()
   recv.callbackSource(newSource);
   recv.callbackFramerate(framerate);
   recv.callbackTimeout(timeOut);
-  recv.begin(1, true);
+  recv.begin(UNIVERSE, true);
   // Serial.println("sACN start");
-  // Serial.println(WiFi.localIP());
+  // Serial.println(WiFi.locBSSIDalIP());
   // Serial.println(portNUM_PROCESSORS);
   cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)cbuffer, NUM_LEDS);
   // cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>(leds, NUM_LEDS);
@@ -157,7 +172,7 @@ void setup()
   xTaskCreate(dmxLoop, "DMX", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
   xTaskCreate(ledLoop, "LED", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
   xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
-  xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(statReportLoop, "Logging", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
 }
 
 void loop()
