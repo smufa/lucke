@@ -6,21 +6,22 @@
 // LED shit
 #define NUM_LEDS 100
 #define DATA_PIN 5
-#define UNIVERSE 1
+#define UNIVERSE 4
 CLEDController *cled;
 CRGB leds[NUM_LEDS];
-uint8_t cbuffer[512];
+uint8_t cbuffer[512] = {};
 
 // Network shit
 uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, 0x48}; // MAC Adress of your device
 WiFiUDP udp;
 Receiver recv(udp); // universe 1
-const char *ssid = "nLa";
-const char *password = "tugicamalo";
+// const char *ssid = "nLa";
+// const char *password = "tugicamalo";
+const char *ssid = "Smart Toilet";
+const char *password = "bbbbbbbbb";
 
 int lastDMXFramerate = 0;
-// const char *ssid = "Smart Toilet";
-// const char *password = "bbbbbbbbb";
+
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
 // IPAddress gateway(192, 168, 0, 1);    // Set your gateway
 // IPAddress subnet(255, 255, 255, 0);   // Set your subnet mask
@@ -92,12 +93,21 @@ void statReportLoop(void *)
     doc["rssi"] = WiFi.RSSI();
     doc["last_DMX_framerate"] = lastDMXFramerate;
 
+    doc["first_5_leds"] = JsonDocument();
+    // Create a nested JsonArray in the JSON document
+    JsonArray jsonArray = doc["first_5_leds"].to<JsonArray>();
+    // Add the elements from first5Buff into the JSON array
+    for (int i = 0; i < 15; i++)
+    {
+      jsonArray.add(cbuffer[i]);
+    }
+
     udp.beginPacket(WiFi.broadcastIP(), 12345);
 
     serializeJson(doc, udp);
     // udp.printf("heap %d, cycle: %d, chip cores: %d, PSram: %d, CPU Freq %d, heapsize: %d, maxHeap: %d, maxPSram: %d", ESP.getFreeHeap(), ESP.getCycleCount(), ESP.getChipCores(), ESP.getFreePsram(), ESP.getCpuFreqMHz(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMinFreePsram());
     udp.endPacket();
-    vTaskDelay(5000);
+    vTaskDelay(1000);
   }
 }
 
