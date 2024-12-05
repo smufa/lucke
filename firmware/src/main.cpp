@@ -3,10 +3,13 @@
 #include "sACN.h"
 #include <ArduinoJson.h>
 
+#define BAUD_RATE 115200
+// #define BAUD_RATE 9600
+
 // LED shit
 #define NUM_LEDS 100
 #define DATA_PIN 5
-#define UNIVERSE 4
+#define UNIVERSE 3
 CLEDController *cled;
 CRGB leds[NUM_LEDS];
 uint8_t cbuffer[512] = {};
@@ -132,7 +135,7 @@ void checkNetwork(void *)
       xTaskCreate(
           playIdleAnimation, // Task function
           "Animation",       // Name of the task (for debugging)
-          500,               // Stack size in words
+          5000,              // Stack size in words
           NULL,              // Parameter passed to the task
           2,                 // Task priority
           &animation         // Handle to the task
@@ -140,17 +143,18 @@ void checkNetwork(void *)
       while (WiFi.status() != WL_CONNECTED)
       {
         // WiFi.begin(ssid, password);
-        vTaskDelay(1000);
+        vTaskDelay(100);
       }
+      Serial.println("Connected");
       vTaskDelete(animation);
     }
-    vTaskDelay(5);
+    vTaskDelay(100);
   }
 }
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(BAUD_RATE);
   // WiFi.config(local_IP, gateway, subnet);
   // vTaskDelay(1000);
   WiFi.useStaticBuffers(1);
@@ -179,14 +183,21 @@ void setup()
   // cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>(leds, NUM_LEDS);
   // randomSeed(analogRead(0));
   // odd = true;
-  xTaskCreate(dmxLoop, "DMX", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
-  xTaskCreate(ledLoop, "LED", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
-  xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
-  xTaskCreate(statReportLoop, "Logging", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(dmxLoop, "DMX", 5000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(ledLoop, "LED", 10000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(checkNetwork, "Wifi check", 5000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(statReportLoop, "Logging", 5000, NULL, 2 | portPRIVILEGE_BIT, NULL);
 }
 
 void loop()
 {
+  // Serial.println("???");
+  // cbuffer[10] = 255;
+  // FastLED.show();
+  // delay(200);
+  // cbuffer[10] = 255;
+  // FastLED.show();
+  // delay(200);
   // recv.update();
   // FastLED.show();
   // Serial.println(WiFi.localIP());
