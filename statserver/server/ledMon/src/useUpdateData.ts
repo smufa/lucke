@@ -20,7 +20,7 @@ export const useUpdateData = (intervalMs: number) => {
   const [data, setData] = useState<stats[]>();
 
   const updateData = () => {
-    fetch(`http://localhost:8080`)
+    fetch(`http://${location.hostname}:8080`)
       .then(async (data) => {
         const dataJson = (await data.json()) as unknown as DataIn;
         setData(Object.values(dataJson));

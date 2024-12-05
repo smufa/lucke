@@ -42,7 +42,7 @@ export const BarCard = ({
             <Text fw="bold" c="dimmed" size="xs">
               HEARTBEAT
             </Text>
-            <Text fw="lighter" c={lastHeartbeatColor} size="sm">
+            <Text fw="lighter" c={lastHeartbeatColor} size="xl">
               {timeElapsedPreety(lastHeartbeat)}
             </Text>
           </Stack>
