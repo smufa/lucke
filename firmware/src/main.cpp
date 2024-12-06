@@ -3,13 +3,13 @@
 #include "sACN.h"
 #include <ArduinoJson.h>
 
-#define BAUD_RATE 115200
-// #define BAUD_RATE 9600
+// #define BAUD_RATE 115200
+#define BAUD_RATE 9600
 
 // LED shit
 #define NUM_LEDS 100
 #define DATA_PIN 5
-#define UNIVERSE 3
+#define UNIVERSE 2
 CLEDController *cled;
 CRGB leds[NUM_LEDS];
 uint8_t cbuffer[512] = {};
@@ -17,12 +17,12 @@ uint8_t cbuffer[512] = {};
 // Network shit
 uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, 0x48}; // MAC Adress of your device
 WiFiUDP udp;
-Receiver recv(udp); // universe 1
+Receiver recv(udp);
 // const char *ssid = "nLa";
 // const char *password = "tugicamalo";
 const char *ssid = "Smart Toilet";
 const char *password = "bbbbbbbbb";
-
+int droppedPackets = 0;
 int lastDMXFramerate = 0;
 
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
@@ -54,16 +54,25 @@ void newSource()
 
 void framerate()
 {
-  Serial.print("Framerate fps: ");
-  Serial.println(recv.framerate());
+  // Serial.print("Framerate fps: ");
+  // Serial.println(recv.framerate());
   lastDMXFramerate = recv.framerate();
+}
+
+void seqdiff()
+{
+  uint8_t diff = recv.seqdiff();
+
+  if (diff != 1)
+  {
+    droppedPackets += 1;              // Modify the shared resource
+  }
 }
 
 void timeOut()
 {
   // Serial.println("Timeout!");
 }
-// bool odd;
 
 void dmxLoop(void *)
 {
@@ -95,6 +104,8 @@ void statReportLoop(void *)
     doc["ssid"] = WiFi.SSID();
     doc["rssi"] = WiFi.RSSI();
     doc["last_DMX_framerate"] = lastDMXFramerate;
+    doc["seqDiff"] = droppedPackets;
+    droppedPackets = 0;
 
     doc["first_5_leds"] = JsonDocument();
     // Create a nested JsonArray in the JSON document
@@ -174,6 +185,7 @@ void setup()
   recv.callbackDMX(dmxReceived);
   recv.callbackSource(newSource);
   recv.callbackFramerate(framerate);
+  recv.callbackSeqDiff(seqdiff);
   recv.callbackTimeout(timeOut);
   recv.begin(UNIVERSE, true);
   // Serial.println("sACN start");
