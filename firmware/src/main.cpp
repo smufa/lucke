@@ -1,5 +1,6 @@
 #include <FastLED.h>
 #include "WiFi.h"
+#include <esp_wifi.h>
 #include "sACN.h"
 #include <ArduinoJson.h>
 #include <queue>
@@ -16,7 +17,7 @@ CRGB leds[NUM_LEDS];
 uint8_t cbuffer[512] = {};
 
 // Network shit
-uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, 0x48}; // MAC Adress of your device
+uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, UNIVERSE}; // MAC Adress of your device
 WiFiUDP udp;
 Receiver recv(udp);
 // const char *ssid = "nLa";
@@ -25,10 +26,9 @@ const char *ssid = "Ledique";
 const char *password = "dasenebipovezau";
 int droppedPackets = 0;
 int lastDMXFramerate = 0;
-std::queue<int> diff_q; 
+std::queue<int> diff_q;
 
 SemaphoreHandle_t mutex;
-
 
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
 // IPAddress gateway(192, 168, 0, 1);    // Set your gateway
@@ -72,7 +72,8 @@ void seqdiff()
   // {
   //   droppedPackets = diff;              // Modify the shared resource
   // }
-  if (xSemaphoreTake(mutex, 0) == pdTRUE) {
+  if (xSemaphoreTake(mutex, 0) == pdTRUE)
+  {
     diff_q.push(diff);
     xSemaphoreGive(mutex);
   }
@@ -117,7 +118,8 @@ void statReportLoop(void *)
 
     doc["seq_diff"] = JsonDocument();
     JsonArray diffArray = doc["seq_diff"].to<JsonArray>();
-    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
+    {
       while (!diff_q.empty())
       {
         diffArray.add(diff_q.front());
@@ -126,7 +128,6 @@ void statReportLoop(void *)
       // doc["seq_diff_len"] = diff_q.size();
       xSemaphoreGive(mutex);
     }
-
 
     // doc["seq_diff"] = diff_q.size();
 
@@ -194,8 +195,15 @@ void setup()
   mutex = xSemaphoreCreateMutex();
   // WiFi.config(local_IP, gateway, subnet);
   // vTaskDelay(1000);
-  // WiFi.useStaticBuffers(1);
-  WiFi.setScanMethod(WIFI_FAST_SCAN);
+  // Change ESP32 Mac Address
+  esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &mac[0]);
+  if (err == ESP_OK)
+  {
+    Serial.println("Success changing Mac Address");
+  }
+  WiFi.useStaticBuffers(1);
+  WiFi
+      WiFi.setScanMethod(WIFI_FAST_SCAN);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT40);

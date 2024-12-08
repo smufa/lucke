@@ -100,8 +100,9 @@ func packetIngest() {
 			}
 		}
 
-		fmt.Println("%s\n", stats)
+		// fmt.Println("%s\n", stats)
 		// fmt.Println(time.Now())
+		fmt.Println(".")
 	}
 }
 
@@ -130,11 +131,21 @@ func apiServer() {
 	http.ListenAndServe(":8080", nil)
 }
 
+// func websiteServer() {
+// 	// // Define the handler function for the root endpoint
+// 	// fs := http.FileServer(http.Dir("./ledMon/dist"))
+// 	// http.Handle("/", fs)
+
+// 	fmt.Println("webserver on 8080")
+// 	http.ListenAndServe(":8080", http.FileServer(http.Dir("./ledMod/dist")))
+// }
+
 func main() {
 
 	// start the loop for ingesting logs
 	go packetIngest()
 	go apiServer()
+	// go webswiteServer()
 
 	// infinite loop
 	for {
