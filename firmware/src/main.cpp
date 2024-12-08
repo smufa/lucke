@@ -1,5 +1,6 @@
 #include <FastLED.h>
 #include "WiFi.h"
+#include <esp_wifi.h>
 #include "sACN.h"
 #include <ArduinoJson.h>
 
@@ -9,13 +10,13 @@
 // LED shit
 #define NUM_LEDS 100
 #define DATA_PIN 5
-#define UNIVERSE 3
+#define UNIVERSE 1
 CLEDController *cled;
 CRGB leds[NUM_LEDS];
 uint8_t cbuffer[512] = {};
 
 // Network shit
-uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, 0x48}; // MAC Adress of your device
+uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, UNIVERSE}; // MAC Adress of your device
 WiFiUDP udp;
 Receiver recv(udp); // universe 1
 // const char *ssid = "nLa";
@@ -157,8 +158,15 @@ void setup()
   Serial.begin(BAUD_RATE);
   // WiFi.config(local_IP, gateway, subnet);
   // vTaskDelay(1000);
+  // Change ESP32 Mac Address
+  esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &mac[0]);
+  if (err == ESP_OK)
+  {
+    Serial.println("Success changing Mac Address");
+  }
   WiFi.useStaticBuffers(1);
-  WiFi.setScanMethod(WIFI_FAST_SCAN);
+  WiFi
+      WiFi.setScanMethod(WIFI_FAST_SCAN);
   WiFi.mode(WIFI_STA);
   // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT40);
   WiFi.begin(ssid, password);
@@ -175,7 +183,7 @@ void setup()
   recv.callbackSource(newSource);
   recv.callbackFramerate(framerate);
   recv.callbackTimeout(timeOut);
-  recv.begin(UNIVERSE, true);
+  recv.begin(UNIVERSE);
   // Serial.println("sACN start");
   // Serial.println(WiFi.locBSSIDalIP());
   // Serial.println(portNUM_PROCESSORS);
