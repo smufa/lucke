@@ -1,6 +1,7 @@
-import { Container, Stack, Title } from "@mantine/core";
+import { Container, SimpleGrid, Stack, Title } from "@mantine/core";
 import { BarCard } from "./BarCard";
 import { useUpdateData } from "./useUpdateData";
+import { GraphCard } from "./GraphCard";
 function App() {
   const { data } = useUpdateData(1000);
 
@@ -25,9 +26,12 @@ function App() {
           </Title>
         </Stack>
 
-        <Stack gap="2rem">
+        {data && <GraphCard data={data} />}
+
+        <SimpleGrid cols={{ xs: 1, md: 2 }}>
           {data?.map((bar) => (
             <BarCard
+              nm_dropped={bar.nm_dropped}
               lastHeartbeat={bar.lastHeartbeat}
               key={bar.universe + bar.local_ip}
               universe={bar.universe}
@@ -40,7 +44,7 @@ function App() {
               first_5_leds={bar.first_5_leds}
             />
           ))}
-        </Stack>
+        </SimpleGrid>
       </Stack>
     </Container>
   );

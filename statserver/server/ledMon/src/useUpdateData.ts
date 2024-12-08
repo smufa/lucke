@@ -13,6 +13,7 @@ export interface stats {
   rssi: number[];
   DMXFramerate: number[];
   first_5_leds: number[];
+  nm_dropped: number[];
   lastHeartbeat: string;
 }
 

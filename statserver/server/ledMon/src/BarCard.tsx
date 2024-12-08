@@ -1,5 +1,4 @@
 import { Card, Group, SimpleGrid, Stack, Text } from "@mantine/core";
-import { LineChart } from "@mantine/charts";
 import { LedDisplay } from "./LedDisplay";
 import { stats } from "./useUpdateData";
 import { getColor } from "./colorUtils";
@@ -62,7 +61,7 @@ export const BarCard = ({
           </Stack>
         </Group>
 
-        <SimpleGrid cols={{ xs: 1, md: 3 }} w="full">
+        <SimpleGrid cols={{ xs: 1, sm: 3 }} w="full">
           <Stack gap="0">
             <Text fw="bold" c="dimmed" size="xs">
               HEAP FREE
