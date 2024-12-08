@@ -20,6 +20,7 @@ type StatPacket struct {
 	Rssi             int64   `json:"rssi"`
 	LastDMXFramerate int64   `json:"last_DMX_framerate"`
 	First5_Leds      []int64 `json:"first_5_leds"`
+	Seq_Diffs        []int64 `json:"seq_diff"`
 }
 
 type StatStore struct {
@@ -30,6 +31,7 @@ type StatStore struct {
 	SSID          string                         `json:"ssid"`
 	Rssi          *circularbuffer.CircularBuffer `json:"rssi"`
 	DMXFramerate  *circularbuffer.CircularBuffer `json:"DMXFramerate"`
+	Dropped       *circularbuffer.CircularBuffer `json:"nm_dropped"`
 	First5_Leds   []int64                        `json:"first_5_leds"`
 	LastHeartbeat time.Time                      `json:"lastHeartbeat"`
 }
@@ -64,6 +66,10 @@ func packetIngest() {
 
 		val, ok := stats[res.Universe]
 		// If the key exists
+		nm_dropped := 0
+		for _, num := range res.Seq_Diffs {
+			nm_dropped += int(num - 1)
+		}
 		if ok {
 
 			stats[res.Universe] = StatStore{
@@ -75,6 +81,7 @@ func packetIngest() {
 				Rssi:          val.Rssi.Add(res.Rssi),
 				DMXFramerate:  val.DMXFramerate.Add(res.LastDMXFramerate),
 				First5_Leds:   res.First5_Leds,
+				Dropped:       val.Dropped.Add(int64(nm_dropped)),
 				LastHeartbeat: time.Now(),
 			}
 
@@ -88,6 +95,7 @@ func packetIngest() {
 				Rssi:          circularbuffer.NewCircularBufferWithVals(HISTORY_LEN, res.Rssi),
 				DMXFramerate:  circularbuffer.NewCircularBufferWithVals(HISTORY_LEN, res.LastDMXFramerate),
 				First5_Leds:   res.First5_Leds,
+				Dropped:       circularbuffer.NewCircularBufferWithVals(HISTORY_LEN, int64(nm_dropped)),
 				LastHeartbeat: time.Now(),
 			}
 		}
