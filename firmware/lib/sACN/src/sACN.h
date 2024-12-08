@@ -171,7 +171,7 @@ private:
 	uint16_t flagAndLength(uint8_t highByte, uint8_t lowByte, uint16_t startAddress);
 	UDP *udp;
 	uint16_t universe;
-	uint8_t mcastIP[4] = {239, 255, 0, 0}; // change to IPAddress>
+	uint8_t mcastIP[4] = {239, 255, 0, 0}; // change to IPAddress
 	bool unicastMode;
 	uint8_t *sacnPacket;
 	uint16_t packetSize;
