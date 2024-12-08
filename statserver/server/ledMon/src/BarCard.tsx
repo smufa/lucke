@@ -1,4 +1,4 @@
-import { Card, Group, Stack, Text } from "@mantine/core";
+import { Card, Group, SimpleGrid, Stack, Text } from "@mantine/core";
 import { LineChart } from "@mantine/charts";
 import { LedDisplay } from "./LedDisplay";
 import { stats } from "./useUpdateData";
@@ -20,7 +20,7 @@ export const BarCard = ({
     rssi.reduce((partialSum, a) => partialSum + a, 0) / rssi.length;
   const rssiColor = getColor(
     [-80, -70, -67, -30],
-    ["green.4", "green.4", "yellow.4", "orange.4", "red.4"],
+    ["green.4", "green.4", "yellow.4", "orange.4", "red.4"].reverse(),
     meanRssi
   );
 
@@ -36,7 +36,7 @@ export const BarCard = ({
 
   return (
     <Card withBorder>
-      <Stack gap="xl">
+      <Stack gap="sm">
         <Group justify="space-around">
           <Stack gap="0">
             <Text fw="bold" c="dimmed" size="xs">
@@ -62,54 +62,7 @@ export const BarCard = ({
           </Stack>
         </Group>
 
-        <Stack>
-          <Group>
-            <Text fw="bold" size="md" opacity={0.4}>
-              RSSI:
-            </Text>
-            <Text size="md" c={rssiColor}>
-              {meanRssi.toFixed(2)} db
-            </Text>
-          </Group>
-          <LineChart
-            h={100}
-            title="RSSI"
-            data={rssi.map((val) => {
-              return {
-                rssi: val,
-              };
-            })}
-            dataKey="rssi"
-            withYAxis={false}
-            series={[{ name: "rssi", color: "indigo.6" }]}
-            curveType="linear"
-          />
-        </Stack>
-
-        <Stack>
-          <Group>
-            <Text fw="bold" size="md" opacity={0.4}>
-              DMX framerate:
-            </Text>
-            <Text size="lg">{meanDMXFramerate.toFixed(2)}</Text>
-          </Group>
-          <LineChart
-            h={100}
-            title="DMX framerate"
-            // data={data}
-            data={DMXFramerate.map((val) => {
-              return {
-                framerate: val,
-              };
-            })}
-            dataKey="framerate"
-            withYAxis={false}
-            series={[{ name: "framerate", color: "teal.6" }]}
-            curveType="linear"
-          />
-        </Stack>
-
-        <Group justify="space-around">
+        <SimpleGrid cols={{ xs: 1, md: 3 }} w="full">
           <Stack gap="0">
             <Text fw="bold" c="dimmed" size="xs">
               HEAP FREE
@@ -136,7 +89,24 @@ export const BarCard = ({
               {ssid}
             </Text>
           </Stack>
-        </Group>
+
+          <Stack gap="0">
+            <Text fw="bold" c="dimmed" size="xs">
+              DMX FRAMERATE
+            </Text>
+            <Text c="dimmed" size="lg">
+              {meanDMXFramerate.toFixed(2)}
+            </Text>
+          </Stack>
+          <Stack gap="0">
+            <Text fw="bold" c="dimmed" size="xs">
+              RSSI
+            </Text>
+            <Text c={rssiColor} size="lg">
+              {meanRssi.toFixed(2)} db
+            </Text>
+          </Stack>
+        </SimpleGrid>
       </Stack>
     </Card>
   );
