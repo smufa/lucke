@@ -2,6 +2,7 @@
 #include "WiFi.h"
 #include "sACN.h"
 #include <ArduinoJson.h>
+#include <queue>
 
 // #define BAUD_RATE 115200
 #define BAUD_RATE 9600
@@ -20,10 +21,14 @@ WiFiUDP udp;
 Receiver recv(udp);
 // const char *ssid = "nLa";
 // const char *password = "tugicamalo";
-const char *ssid = "Smart Toilet";
-const char *password = "bbbbbbbbb";
+const char *ssid = "Ledique";
+const char *password = "dasenebipovezau";
 int droppedPackets = 0;
 int lastDMXFramerate = 0;
+std::queue<int> diff_q; 
+
+SemaphoreHandle_t mutex;
+
 
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
 // IPAddress gateway(192, 168, 0, 1);    // Set your gateway
@@ -62,10 +67,14 @@ void framerate()
 void seqdiff()
 {
   uint8_t diff = recv.seqdiff();
-
-  if (diff != 1)
-  {
-    droppedPackets += 1;              // Modify the shared resource
+  // Serial.println(diff);
+  // if (diff != 1)
+  // {
+  //   droppedPackets = diff;              // Modify the shared resource
+  // }
+  if (xSemaphoreTake(mutex, 0) == pdTRUE) {
+    diff_q.push(diff);
+    xSemaphoreGive(mutex);
   }
 }
 
@@ -79,7 +88,8 @@ void dmxLoop(void *)
   while (true)
   {
     recv.update();
-    vTaskDelay(1);
+    FastLED.show();
+    vTaskDelay(15);
   }
 }
 
@@ -88,7 +98,7 @@ void ledLoop(void *)
   while (true)
   {
     FastLED.show();
-    vTaskDelay(1);
+    vTaskDelay(20);
   }
 }
 
@@ -104,8 +114,23 @@ void statReportLoop(void *)
     doc["ssid"] = WiFi.SSID();
     doc["rssi"] = WiFi.RSSI();
     doc["last_DMX_framerate"] = lastDMXFramerate;
-    doc["seqDiff"] = droppedPackets;
-    droppedPackets = 0;
+
+    doc["seq_diff"] = JsonDocument();
+    JsonArray diffArray = doc["seq_diff"].to<JsonArray>();
+    if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE) {
+      while (!diff_q.empty())
+      {
+        diffArray.add(diff_q.front());
+        diff_q.pop();
+      }
+      // doc["seq_diff_len"] = diff_q.size();
+      xSemaphoreGive(mutex);
+    }
+
+
+    // doc["seq_diff"] = diff_q.size();
+
+    // droppedPackets = 0;
 
     doc["first_5_leds"] = JsonDocument();
     // Create a nested JsonArray in the JSON document
@@ -166,11 +191,13 @@ void checkNetwork(void *)
 void setup()
 {
   Serial.begin(BAUD_RATE);
+  mutex = xSemaphoreCreateMutex();
   // WiFi.config(local_IP, gateway, subnet);
   // vTaskDelay(1000);
-  WiFi.useStaticBuffers(1);
+  // WiFi.useStaticBuffers(1);
   WiFi.setScanMethod(WIFI_FAST_SCAN);
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT40);
   WiFi.begin(ssid, password);
   // while (WiFi.status() != WL_CONNECTED) {
@@ -187,7 +214,7 @@ void setup()
   recv.callbackFramerate(framerate);
   recv.callbackSeqDiff(seqdiff);
   recv.callbackTimeout(timeOut);
-  recv.begin(UNIVERSE, true);
+  recv.begin(UNIVERSE);
   // Serial.println("sACN start");
   // Serial.println(WiFi.locBSSIDalIP());
   // Serial.println(portNUM_PROCESSORS);
@@ -195,10 +222,10 @@ void setup()
   // cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>(leds, NUM_LEDS);
   // randomSeed(analogRead(0));
   // odd = true;
-  xTaskCreate(dmxLoop, "DMX", 5000, NULL, 2 | portPRIVILEGE_BIT, NULL);
-  xTaskCreate(ledLoop, "LED", 10000, NULL, 2 | portPRIVILEGE_BIT, NULL);
-  xTaskCreate(checkNetwork, "Wifi check", 5000, NULL, 2 | portPRIVILEGE_BIT, NULL);
-  xTaskCreate(statReportLoop, "Logging", 5000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(dmxLoop, "DMX", 5000, NULL, 3 | portPRIVILEGE_BIT, NULL);
+  // xTaskCreate(ledLoop, "LED", 5000, NULL, 4 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
+  xTaskCreate(statReportLoop, "Logging", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
 }
 
 void loop()

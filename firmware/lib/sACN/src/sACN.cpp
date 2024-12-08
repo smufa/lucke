@@ -164,6 +164,8 @@ bool Receiver::parse()
 	// verify source
 	if (memcmp(source.cid, cid, CID_SIZE) != 0)
 		return false;
+
+		
 	// verify sequenznumber
 	if (callSeqDiffFunction != NULL)
 	{
@@ -172,6 +174,9 @@ bool Receiver::parse()
 	}
 	if (((seqNumber - source.seqNumber) <= 0) && ((seqNumber - source.seqNumber) > -20))
 		return false;
+
+
+
 	// update source data
 	source.timestamp = millis();
 	source.seqNumber = seqNumber;
@@ -254,13 +259,11 @@ void Receiver::name(char *sourceName)
 uint8_t Receiver::framerate()
 {
 	return source.frameRate;
-	;
 }
 
 uint8_t Receiver::seqdiff()
 {
 	return source.seqDiff;
-	;
 }
 
 bool Receiver::sources()
