@@ -201,9 +201,8 @@ void setup()
   {
     Serial.println("Success changing Mac Address");
   }
-  WiFi.useStaticBuffers(1);
-  WiFi
-      WiFi.setScanMethod(WIFI_FAST_SCAN);
+  // WiFi.useStaticBuffers(1);
+  WiFi.setScanMethod(WIFI_FAST_SCAN);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT40);
