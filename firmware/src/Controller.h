@@ -47,7 +47,7 @@ class Controller {
 public:
   Controller(const Controller& other) = delete;
 
-  uint8_t universe = 5;
+  uint8_t universe = 1;
   uint16_t dmxAddrOffset = 0;
   uint16_t numGroups = 100;  
   uint8_t ledBuffer[LED_SIZE] = {};
@@ -77,6 +77,9 @@ public:
 
   void update();
   void updateLoop();
+//   void playIdleAnimation();
+//   void checkNetwork();
+
   void clearDiffQueue(JsonArray& jarray);
   void sendUdpPacket(JsonArray& doc);
   void sendReport();
@@ -85,4 +88,7 @@ public:
   void printNewRecv();
   void updateFramerate();
   void seqDiff();
+
+private:
+    
 };

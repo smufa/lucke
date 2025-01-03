@@ -96,6 +96,34 @@ void Controller::updateLoop() {
   FastLED.show();
 }
 
+// void Controller::playIdleAnimation() {
+//   ledBuffer[((millis() / 10) % (NUM_LEDS * 3))] = 255;
+//   ledBuffer[((millis() / 10) % (NUM_LEDS * 3)) - 1] = 0;  
+// }
+
+// void Controller::checkNetwork() { 
+//   if (WiFi.status() != WL_CONNECTED)
+//   {
+//     TaskHandle_t animation = NULL;
+//     LOG("Lost connection\n");
+//     xTaskCreate(
+//         playIdleAnimation, // Task function
+//         "Animation",       // Name of the task (for debugging)
+//         5000,              // Stack size in words
+//         NULL,              // Parameter passed to the task
+//         2,                 // Task priority
+//         &animation         // Handle to the task
+//     );
+//     while (WiFi.status() != WL_CONNECTED)
+//     {
+//       vTaskDelay(100);
+//     }
+    
+//     LOG("Connected\n");
+//     vTaskDelete(animation);
+//   }
+// }
+
 void Controller::clearDiffQueue(JsonArray& jarray) {
   if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
   {

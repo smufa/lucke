@@ -1,5 +1,9 @@
 #include "Controller.h"
 
+#define UNIVERSE 5
+#define ADDR_OFFSET 0
+#define NUM_GROUPS 100
+
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
 // IPAddress gateway(192, 168, 0, 1);    // Set your gateway
 // IPAddress subnet(255, 255, 255, 0);   // Set your subnet mask
@@ -65,7 +69,7 @@ void dmxLoop(void *)
 void setup()
 {  
   // setup wifi, sacn, and other stuff
-  Controller::get().init(5);
+  Controller::get().init(UNIVERSE, ADDR_OFFSET, NUM_GROUPS);
 
   // create all tasks
   xTaskCreate(dmxLoop, "DMX", 5000, NULL, 3 | portPRIVILEGE_BIT, NULL);
