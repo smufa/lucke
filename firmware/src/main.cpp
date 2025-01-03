@@ -9,9 +9,11 @@
 
 #define ENABLE_LOGGING
 #ifdef ENABLE_LOGGING
-  #define LOG(pattern, args...) Serial.printf(pattern, args)
+  #define LOG(pattern) Serial.printf(pattern)
+  #define LOGF(pattern, args...) Serial.printf(pattern, args)
 #else
-  #define LOG(pattern, args...)
+  #define LOG(pattern)
+  #define LOGF(pattern, args...)
 #endif
 
 // #define BAUD_RATE 115200
@@ -31,8 +33,22 @@
 #define LED_SIZE (NUM_LEDS * NUM_PXLS)
 
 
+SemaphoreHandle_t mutex;
 
-struct Controller {
+
+void recv_dmxReceived();
+void recv_newSource();
+void recv_framerate();
+void recv_seqdiff();
+void recv_timeOut();
+
+
+class Controller {
+  Controller() {}
+  
+public:
+  Controller(const Controller& other) = delete;
+
   uint8_t universe = 5;
   uint16_t dmxAddrOffset = 0;
   uint16_t numGroups = 100;  
@@ -42,6 +58,45 @@ struct Controller {
   int droppedPackets = 0;
   int lastDMXFramerate = 0;
   std::queue<uint8_t> packetDiff;
+
+  WiFiUDP udp;
+  Receiver* recv;
+
+  static Controller& get(){
+    static Controller s_Instance;
+    return s_Instance;
+  }
+
+  void init() {
+      setupWifi();
+      setupSacn();
+  }
+
+  void setupWifi() {
+    // setup mac address
+    uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, universe}; // MAC Adress of your device
+    esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &mac[0]);
+    if (err == ESP_OK)
+    {
+      LOG("Success changing Mac Address\nS");
+    }
+
+    WiFi.setScanMethod(WIFI_FAST_SCAN);
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+  }
+
+  void setupSacn() {
+    // setup sacn
+    recv = new Receiver(udp);
+    recv->callbackDMX(recv_dmxReceived);
+    recv->callbackSource(recv_newSource);
+    recv->callbackFramerate(recv_framerate);
+    recv->callbackSeqDiff(recv_seqdiff);
+    recv->callbackTimeout(recv_timeOut);
+    recv->begin(universe);
+  }
 
   inline uint8_t* getLEDBuffer () { return ledBuffer; }
   inline uint8_t* getDMXBuffer () { return dmxBuffer; }
@@ -62,10 +117,6 @@ struct Controller {
     }
   }
 
-  void pushToQueue(uint8_t diff){
-    packetDiff.push(diff);
-  }
-
   void clearDiffQueue(JsonArray& jarray) {
     while (!packetDiff.empty())
     {
@@ -74,123 +125,103 @@ struct Controller {
     }
   }
 
-  void setupWifi(){
-    WiFi.setScanMethod(WIFI_FAST_SCAN);
-    WiFi.mode(WIFI_STA);
-    WiFi.setSleep(false);
-    WiFi.begin(WIFI_SSID, WIFI_PASS);
+  void sendUdpPacket(JsonArray& doc) {
+    udp.beginPacket(WiFi.broadcastIP(), 12345);
+    serializeJson(doc, udp);
+    // udp.printf("heap %d, cycle: %d, chip cores: %d, PSram: %d, CPU Freq %d, heapsize: %d, maxHeap: %d, maxPSram: %d", ESP.getFreeHeap(), ESP.getCycleCount(), ESP.getChipCores(), ESP.getFreePsram(), ESP.getCpuFreqMHz(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMinFreePsram());
+    udp.endPacket();
   }
 
-  // void taskFramerate(){
 
-  // }
+  void newPacket() {
+    recv->dmx(dmxBuffer);
+    update();
+  }
 
-  // void taskDMXReceived(){
-    
-  // }
+  void printNewRecv() {
+    LOGF("%s\n", recv->name());
+  }
 
-  // void taskTimeout(){
-    
-  // }
-  // void taskNewSource(){
-    
-  // }
+  void updateFramerate() {
+    lastDMXFramerate = recv->framerate();
+  }
+
+  void seqDiff() {
+    uint8_t diff = recv->seqdiff();
+    if (xSemaphoreTake(mutex, 0) == pdTRUE)
+    {
+      packetDiff.push(diff);
+      xSemaphoreGive(mutex);
+    }
+  }
+
 };
 
-
 CLEDController *cled;
-Controller controller;
-
-// Network shit
-uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, 0xDD}; // MAC Adress of your device
-WiFiUDP udp;
-Receiver recv(udp);
-
-SemaphoreHandle_t mutex;
-
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
 // IPAddress gateway(192, 168, 0, 1);    // Set your gateway
 // IPAddress subnet(255, 255, 255, 0);   // Set your subnet mask
 
 // Misc
 
-void dmxReceived()
+void recv_dmxReceived()
 {
-  recv.dmx(controller.getDMXBuffer());
-  controller.update();
+  Controller::get().newPacket();
 }
 
-void newSource()
+void recv_newSource()
 {
-  LOG("%s\n", recv.name());
+  Controller::get().printNewRecv();
 }
 
-void framerate()
+void recv_framerate()
 {
-  controller.lastDMXFramerate = recv.framerate();
+  Controller::get().updateFramerate();
 }
 
-void seqdiff()
+void recv_seqdiff()
 {
-  uint8_t diff = recv.seqdiff();
-  if (xSemaphoreTake(mutex, 0) == pdTRUE)
-  {
-    controller.pushToQueue(diff);
-    xSemaphoreGive(mutex);
-  }
+  Controller::get().seqDiff();
 }
 
-void timeOut()
+void recv_timeOut()
 {
   // Serial.println("Timeout!");
 }
 
-void dmxLoop(void *)
-{
-  while (true)
-  {
-    recv.update();
-    FastLED.show();
-    vTaskDelay(15);
-  }
-}
 
 void statReportLoop(void *)
 {
   while (true)
   {
     JsonDocument doc;
-    doc["universe"] = controller.universe;
+    doc["universe"] = Controller::get().universe;
     doc["heap_size"] = ESP.getHeapSize();
     doc["heap_free"] = ESP.getFreeHeap();
     doc["local_ip"] = WiFi.localIP();
     doc["WIFI_SSID"] = WiFi.SSID();
     doc["rssi"] = WiFi.RSSI();
-    doc["last_DMX_framerate"] = controller.lastDMXFramerate;
+    doc["last_DMX_framerate"] = Controller::get().lastDMXFramerate;
 
     // add packet sequence diff to json
     doc["seq_diff"] = JsonDocument();
     JsonArray diffArray = doc["seq_diff"].to<JsonArray>();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
     {
-      controller.clearDiffQueue(diffArray);
+      Controller::get().clearDiffQueue(diffArray);
       xSemaphoreGive(mutex);
     }
 
     // add first 5 leds
     doc["first_5_leds"] = JsonDocument();
     JsonArray jsonArray = doc["first_5_leds"].to<JsonArray>();
-    uint8_t* ledBuffer = controller.getLEDBuffer();
+    uint8_t* ledBuffer = Controller::get().getLEDBuffer();
     for (int i = 0; i < 15; i++)
     {
       jsonArray.add(ledBuffer[i]);
     }
 
-    udp.beginPacket(WiFi.broadcastIP(), 12345);
-
-    serializeJson(doc, udp);
-    // udp.printf("heap %d, cycle: %d, chip cores: %d, PSram: %d, CPU Freq %d, heapsize: %d, maxHeap: %d, maxPSram: %d", ESP.getFreeHeap(), ESP.getCycleCount(), ESP.getChipCores(), ESP.getFreePsram(), ESP.getCpuFreqMHz(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMinFreePsram());
-    udp.endPacket();
+    Controller::get().sendUdpPacket(jsonArray);
     vTaskDelay(1000);
   }
 }
@@ -199,7 +230,7 @@ void playIdleAnimation(void *)
 {
   while (true)
   {
-    uint8_t* ledBuffer = controller.getLEDBuffer();
+    uint8_t* ledBuffer = Controller::get().getLEDBuffer();
     ledBuffer[((millis() / 10) % (NUM_LEDS * 3))] = 255;
     ledBuffer[((millis() / 10) % (NUM_LEDS * 3)) - 1] = 0;
     vTaskDelay(5);
@@ -234,31 +265,25 @@ void checkNetwork(void *)
   }
 }
 
+void dmxLoop(void *)
+  {
+    while (true)
+    {
+      Controller::get().recv->update();
+      FastLED.show();
+      vTaskDelay(15);
+    }
+  }
+
 void setup()
 {
   Serial.begin(BAUD_RATE);
   mutex = xSemaphoreCreateMutex();
   
-  // set mac address
-  esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &mac[0]);
-  if (err == ESP_OK)
-  {
-    LOG("Success changing Mac Address\n");
-  }
-
   // setup wifi
-  controller.setupWifi();
-
-  // setup sacn
-  recv.callbackDMX(dmxReceived);
-  recv.callbackSource(newSource);
-  recv.callbackFramerate(framerate);
-  recv.callbackSeqDiff(seqdiff);
-  recv.callbackTimeout(timeOut);
-  recv.begin(controller.universe);
-
+  Controller::get().init();
   // init fastled
-  cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)controller.getLEDBuffer(), NUM_LEDS);
+  cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)Controller::get().getLEDBuffer(), NUM_LEDS);
 
   // create all tasks
   xTaskCreate(dmxLoop, "DMX", 5000, NULL, 3 | portPRIVILEGE_BIT, NULL);
