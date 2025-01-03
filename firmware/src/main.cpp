@@ -59,6 +59,8 @@ public:
   int lastDMXFramerate = 0;
   std::queue<uint8_t> packetDiff;
 
+  CLEDController *cled;
+
   WiFiUDP udp;
   Receiver* recv;
 
@@ -70,6 +72,8 @@ public:
   void init() {
       setupWifi();
       setupSacn();
+
+      cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)ledBuffer, NUM_LEDS);
   }
 
   void setupWifi() {
@@ -157,7 +161,6 @@ public:
 
 };
 
-CLEDController *cled;
 // IPAddress local_IP(192, 168, 0, 150); // Set the desired IP address
 // IPAddress gateway(192, 168, 0, 1);    // Set your gateway
 // IPAddress subnet(255, 255, 255, 0);   // Set your subnet mask
@@ -282,8 +285,7 @@ void setup()
   
   // setup wifi
   Controller::get().init();
-  // init fastled
-  cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)Controller::get().getLEDBuffer(), NUM_LEDS);
+  
 
   // create all tasks
   xTaskCreate(dmxLoop, "DMX", 5000, NULL, 3 | portPRIVILEGE_BIT, NULL);
