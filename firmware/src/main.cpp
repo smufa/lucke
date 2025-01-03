@@ -4,29 +4,107 @@
 #include "sACN.h"
 #include <ArduinoJson.h>
 #include <queue>
+#include <stdint.h>
+
+
+#define ENABLE_LOGGING
+#ifdef ENABLE_LOGGING
+  #define LOG(pattern, args...) Serial.printf(pattern, args)
+#else
+  #define LOG(pattern, args...)
+#endif
 
 // #define BAUD_RATE 115200
 #define BAUD_RATE 9600
 
-// LED shit
-#define NUM_LEDS 100
+// Wifi credentials
+#define WIFI_SSID "Ledique"
+#define WIFI_PASS "dasenebipovezau"
+
+// DMX packet size
+#define DMX_SIZE 512
+// data pin for leds
 #define DATA_PIN 5
-#define UNIVERSE 2
+
+#define NUM_LEDS 100
+#define NUM_PXLS 3
+#define LED_SIZE (NUM_LEDS * NUM_PXLS)
+
+
+
+struct Controller {
+  uint8_t universe = 5;
+  uint16_t dmxAddrOffset = 0;
+  uint16_t numGroups = 100;  
+  uint8_t ledBuffer[LED_SIZE] = {};
+  uint8_t dmxBuffer[DMX_SIZE] = {};  
+
+  int droppedPackets = 0;
+  int lastDMXFramerate = 0;
+  std::queue<uint8_t> packetDiff;
+
+  inline uint8_t* getLEDBuffer () { return ledBuffer; }
+  inline uint8_t* getDMXBuffer () { return dmxBuffer; }
+
+  void update() {
+    uint16_t groupSize = NUM_LEDS / numGroups;
+    uint16_t ledIndex = 0;
+
+    for (uint16_t i = 0; i < numGroups; i++) {
+      for (uint16_t j = 0; j < groupSize; j++) {
+        for (uint16_t k = 0; k < NUM_PXLS; k++) {
+          // check if in bounds
+          uint16_t dmxBufferIndex = dmxAddrOffset + i * NUM_PXLS + k;
+          ledBuffer[ledIndex] = dmxBuffer[dmxBufferIndex];
+          ledIndex++;
+        }
+      }
+    }
+  }
+
+  void pushToQueue(uint8_t diff){
+    packetDiff.push(diff);
+  }
+
+  void clearDiffQueue(JsonArray& jarray) {
+    while (!packetDiff.empty())
+    {
+      jarray.add(packetDiff.front());
+      packetDiff.pop();
+    }
+  }
+
+  void setupWifi(){
+    WiFi.setScanMethod(WIFI_FAST_SCAN);
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+  }
+
+  // void taskFramerate(){
+
+  // }
+
+  // void taskDMXReceived(){
+    
+  // }
+
+  // void taskTimeout(){
+    
+  // }
+  // void taskNewSource(){
+    
+  // }
+};
+
+
 CLEDController *cled;
-CRGB leds[NUM_LEDS];
-uint8_t cbuffer[512] = {};
+Controller controller;
 
 // Network shit
-uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, UNIVERSE}; // MAC Adress of your device
+uint8_t mac[] = {0x90, 0xA2, 0xDA, 0x10, 0x14, 0xDD}; // MAC Adress of your device
 WiFiUDP udp;
 Receiver recv(udp);
-// const char *ssid = "nLa";
-// const char *password = "tugicamalo";
-const char *ssid = "Ledique";
-const char *password = "dasenebipovezau";
-int droppedPackets = 0;
-int lastDMXFramerate = 0;
-std::queue<int> diff_q;
 
 SemaphoreHandle_t mutex;
 
@@ -38,43 +116,26 @@ SemaphoreHandle_t mutex;
 
 void dmxReceived()
 {
-  recv.dmx(cbuffer);
-
-  // cled->setLeds((CRGB*)cbuffer, NUM_LEDS);
-  // for (int i = 0; i < 100; i++) {
-  //   leds[i] = CRGB(buffer[3 * i], buffer[3 * i + 1], buffer[3 * i + 2]);
-  // }
-  // leds[0] = CRGB(buffer[0], buffer[1], buffer[2]);
-  // Serial.print("Led1:");
-  // Serial.print(buffer[0]);
-  // Serial.print(buffer[1]);
-  // Serial.println(buffer[2]);
+  recv.dmx(controller.getDMXBuffer());
+  controller.update();
 }
 
 void newSource()
 {
-  // Serial.print("new soure name: ");
-  Serial.println(recv.name());
+  LOG("%s\n", recv.name());
 }
 
 void framerate()
 {
-  // Serial.print("Framerate fps: ");
-  // Serial.println(recv.framerate());
-  lastDMXFramerate = recv.framerate();
+  controller.lastDMXFramerate = recv.framerate();
 }
 
 void seqdiff()
 {
   uint8_t diff = recv.seqdiff();
-  // Serial.println(diff);
-  // if (diff != 1)
-  // {
-  //   droppedPackets = diff;              // Modify the shared resource
-  // }
   if (xSemaphoreTake(mutex, 0) == pdTRUE)
   {
-    diff_q.push(diff);
+    controller.pushToQueue(diff);
     xSemaphoreGive(mutex);
   }
 }
@@ -94,52 +155,35 @@ void dmxLoop(void *)
   }
 }
 
-void ledLoop(void *)
-{
-  while (true)
-  {
-    FastLED.show();
-    vTaskDelay(20);
-  }
-}
-
 void statReportLoop(void *)
 {
   while (true)
   {
     JsonDocument doc;
-    doc["universe"] = UNIVERSE;
+    doc["universe"] = controller.universe;
     doc["heap_size"] = ESP.getHeapSize();
     doc["heap_free"] = ESP.getFreeHeap();
     doc["local_ip"] = WiFi.localIP();
-    doc["ssid"] = WiFi.SSID();
+    doc["WIFI_SSID"] = WiFi.SSID();
     doc["rssi"] = WiFi.RSSI();
-    doc["last_DMX_framerate"] = lastDMXFramerate;
+    doc["last_DMX_framerate"] = controller.lastDMXFramerate;
 
+    // add packet sequence diff to json
     doc["seq_diff"] = JsonDocument();
     JsonArray diffArray = doc["seq_diff"].to<JsonArray>();
     if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
     {
-      while (!diff_q.empty())
-      {
-        diffArray.add(diff_q.front());
-        diff_q.pop();
-      }
-      // doc["seq_diff_len"] = diff_q.size();
+      controller.clearDiffQueue(diffArray);
       xSemaphoreGive(mutex);
     }
 
-    // doc["seq_diff"] = diff_q.size();
-
-    // droppedPackets = 0;
-
+    // add first 5 leds
     doc["first_5_leds"] = JsonDocument();
-    // Create a nested JsonArray in the JSON document
     JsonArray jsonArray = doc["first_5_leds"].to<JsonArray>();
-    // Add the elements from first5Buff into the JSON array
+    uint8_t* ledBuffer = controller.getLEDBuffer();
     for (int i = 0; i < 15; i++)
     {
-      jsonArray.add(cbuffer[i]);
+      jsonArray.add(ledBuffer[i]);
     }
 
     udp.beginPacket(WiFi.broadcastIP(), 12345);
@@ -155,8 +199,9 @@ void playIdleAnimation(void *)
 {
   while (true)
   {
-    cbuffer[((millis() / 10) % (NUM_LEDS * 3))] = 255;
-    cbuffer[((millis() / 10) % (NUM_LEDS * 3)) - 1] = 0;
+    uint8_t* ledBuffer = controller.getLEDBuffer();
+    ledBuffer[((millis() / 10) % (NUM_LEDS * 3))] = 255;
+    ledBuffer[((millis() / 10) % (NUM_LEDS * 3)) - 1] = 0;
     vTaskDelay(5);
   }
 }
@@ -168,7 +213,7 @@ void checkNetwork(void *)
     if (WiFi.status() != WL_CONNECTED)
     {
       TaskHandle_t animation = NULL;
-      Serial.println("Lost connection");
+      LOG("Lost connection\n");
       xTaskCreate(
           playIdleAnimation, // Task function
           "Animation",       // Name of the task (for debugging)
@@ -179,10 +224,10 @@ void checkNetwork(void *)
       );
       while (WiFi.status() != WL_CONNECTED)
       {
-        // WiFi.begin(ssid, password);
+        // WiFi.begin(WIFI_SSID, WIFI_PASS);
         vTaskDelay(100);
       }
-      Serial.println("Connected");
+      LOG("Connected\n");
       vTaskDelete(animation);
     }
     vTaskDelay(100);
@@ -193,74 +238,35 @@ void setup()
 {
   Serial.begin(BAUD_RATE);
   mutex = xSemaphoreCreateMutex();
-  // WiFi.config(local_IP, gateway, subnet);
-  // vTaskDelay(1000);
-  // Change ESP32 Mac Address
+  
+  // set mac address
   esp_err_t err = esp_wifi_set_mac(WIFI_IF_STA, &mac[0]);
   if (err == ESP_OK)
   {
-    Serial.println("Success changing Mac Address");
+    LOG("Success changing Mac Address\n");
   }
-  // WiFi.useStaticBuffers(1);
-  WiFi.setScanMethod(WIFI_FAST_SCAN);
-  WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);
-  // esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT40);
-  WiFi.begin(ssid, password);
-  // while (WiFi.status() != WL_CONNECTED) {
-  //   vTaskDelay(50);              // Wait for 500ms before checking again
-  //   Serial.print(".");       // Print a dot to show progress
-  // }
 
-  // esp_bluedroid_disable();
-  // esp_bluedroid_deinit();
-  // esp_bt_controller_disable();
-  // esp_bt_controller_deinit();
+  // setup wifi
+  controller.setupWifi();
+
+  // setup sacn
   recv.callbackDMX(dmxReceived);
   recv.callbackSource(newSource);
   recv.callbackFramerate(framerate);
   recv.callbackSeqDiff(seqdiff);
   recv.callbackTimeout(timeOut);
-  recv.begin(UNIVERSE);
-  // Serial.println("sACN start");
-  // Serial.println(WiFi.locBSSIDalIP());
-  // Serial.println(portNUM_PROCESSORS);
-  cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)cbuffer, NUM_LEDS);
-  // cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>(leds, NUM_LEDS);
-  // randomSeed(analogRead(0));
-  // odd = true;
+  recv.begin(controller.universe);
+
+  // init fastled
+  cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)controller.getLEDBuffer(), NUM_LEDS);
+
+  // create all tasks
   xTaskCreate(dmxLoop, "DMX", 5000, NULL, 3 | portPRIVILEGE_BIT, NULL);
-  // xTaskCreate(ledLoop, "LED", 5000, NULL, 4 | portPRIVILEGE_BIT, NULL);
   xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
   xTaskCreate(statReportLoop, "Logging", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
 }
 
 void loop()
 {
-  // Serial.println("???");
-  // cbuffer[10] = 255;
-  // FastLED.show();
-  // delay(200);
-  // cbuffer[10] = 255;
-  // FastLED.show();
-  // delay(200);
-  // recv.update();
-  // FastLED.show();
-  // Serial.println(WiFi.localIP());
-  // if (WiFi.isConnected()) {
-  // Serial.println("connected");
-  // Serial.println(WiFi.localIP());
-  // }
-  // recv.update();
-  // for (int i = 0; i < 100; i++) {
-  //   if (odd) {
-  //     leds[i] = CRGB::Black;
-  //   } else {
-  //     leds[i] = CRGB(random(0, 156), random(0, 156), random(0, 156));
-  //   }
-  // }
-  // FastLED.show();
-  // vTaskDelay(50);
-  // odd = !odd;
   vTaskDelete(NULL);
 }
