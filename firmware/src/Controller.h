@@ -81,7 +81,7 @@ public:
 //   void checkNetwork();
 
   void clearDiffQueue(JsonArray& jarray);
-  void sendUdpPacket(JsonArray& doc);
+  void sendUdpPacket(JsonDocument& doc);
   void sendReport();
 
   void newPacket();

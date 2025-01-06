@@ -136,7 +136,7 @@ void Controller::clearDiffQueue(JsonArray& jarray) {
   }
 }
 
-void Controller::sendUdpPacket(JsonArray& doc) {
+void Controller::sendUdpPacket(JsonDocument& doc) {
   udp.beginPacket(WiFi.broadcastIP(), 12345);
   serializeJson(doc, udp);
   // udp.printf("heap %d, cycle: %d, chip cores: %d, PSram: %d, CPU Freq %d, heapsize: %d, maxHeap: %d, maxPSram: %d", ESP.getFreeHeap(), ESP.getCycleCount(), ESP.getChipCores(), ESP.getFreePsram(), ESP.getCpuFreqMHz(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMinFreePsram());
@@ -166,7 +166,7 @@ void Controller::sendReport() {
       jsonArray.add(ledBuffer[i]);
   }
 
-  sendUdpPacket(jsonArray);
+  sendUdpPacket(doc);
 }
 
 
