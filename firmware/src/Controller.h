@@ -17,21 +17,32 @@
   #define LOGF(pattern, args...)
 #endif
 
-// #define BAUD_RATE 115200
-#define BAUD_RATE 9600
+// basically sets max brightness on wifi search animation if defined
+#define STANDALONE
+
+// Hardware LED params
+#define NUM_PXLS 3                        // rgb = 3 bytes
+#define NUM_LEDS 10                       // number of hardware leds
+#define LED_SIZE (NUM_LEDS * NUM_PXLS)    // total size in bytes
+
+// DMX params
+#define UNIVERSE 5                        // DMX universe
+#define ADDR_OFFSET 0                     // address offset in said universe
+#define NUM_GROUPS 10                     // this sets number of pixels
+
+// we cant have more groups than leds
+#if NUM_GROUPS > NUM_LEDS
+  #define NUM_GROUPS NUM_LEDS
+#endif
+
+// CONSTANT
+#define BAUD_RATE 9600                    // debug connection
+#define DMX_SIZE 512                      // dmx universe size (always 512)
+#define DATA_PIN 5                        // hardware data pin
 
 // Wifi credentials
-#define WIFI_SSID "Ledique"
-#define WIFI_PASS "dasenebipovezau"
-
-// DMX packet size
-#define DMX_SIZE 512
-// data pin for leds
-#define DATA_PIN 5
-
-#define NUM_LEDS 100
-#define NUM_PXLS 3
-#define LED_SIZE (NUM_LEDS * NUM_PXLS)
+#define WIFI_SSID "Ledique"               // wifi ssid (the same network as sacn master)
+#define WIFI_PASS "dasenebipovezau"       // wifi password
 
 
 void recv_dmxReceived();
@@ -47,9 +58,9 @@ class Controller {
 public:
   Controller(const Controller& other) = delete;
 
-  uint8_t universe = 1;
-  uint16_t dmxAddrOffset = 0;
-  uint16_t numGroups = 100;  
+  uint8_t universe = UNIVERSE;
+  uint16_t dmxAddrOffset = ADDR_OFFSET;
+  uint16_t numGroups = NUM_GROUPS;  
   uint8_t ledBuffer[LED_SIZE] = {};
   uint8_t dmxBuffer[DMX_SIZE] = {};  
 
@@ -68,7 +79,7 @@ public:
     return instance;
   }
 
-  void init(uint8_t uni, uint16_t dmxAddressOffset = 0, uint16_t numberOfGroups = NUM_LEDS);
+  void init(uint8_t uni = UNIVERSE, uint16_t dmxAddressOffset = ADDR_OFFSET, uint16_t numberOfGroups = NUM_LEDS);
   void setupWifi();
   void setupSacn();
   

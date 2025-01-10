@@ -33,8 +33,9 @@ void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfG
   static bool inited = false;
 
   if(!inited) {
+#ifdef ENABLE_LOGGING
     Serial.begin(BAUD_RATE);
-
+#endif
     setupWifi();
     setupSacn();
 
@@ -76,10 +77,10 @@ void Controller::setupSacn() {
 }
 
 void Controller::update() {
-  uint16_t groupSize = NUM_LEDS / numGroups;
+  uint16_t groupSize = NUM_LEDS / NUM_GROUPS;
   uint16_t ledIndex = 0;
 
-  for (uint16_t i = 0; i < numGroups; i++) {
+  for (uint16_t i = 0; i < NUM_GROUPS; i++) {
     for (uint16_t j = 0; j < groupSize; j++) {
       for (uint16_t k = 0; k < NUM_PXLS; k++) {
         // check if in bounds
