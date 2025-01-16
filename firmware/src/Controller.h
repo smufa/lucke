@@ -8,7 +8,15 @@
 #include <stdint.h>
 
 
-#define ENABLE_LOGGING
+
+#define STANDALONE                            // basically sets max brightness on wifi search animation if defined
+#define ENABLE_LOGGING                        // defines logging functions to uart if defined
+
+#define WIFI_BRIGHTNESS 255
+#ifdef STANDALONE
+  #define WIFI_BRIGHTNESS 60
+#endif
+
 #ifdef ENABLE_LOGGING
   #define LOG(pattern) Serial.printf(pattern)
   #define LOGF(pattern, args...) Serial.printf(pattern, args)
@@ -17,32 +25,34 @@
   #define LOGF(pattern, args...)
 #endif
 
-// basically sets max brightness on wifi search animation if defined
-#define STANDALONE
 
-// Hardware LED params
-#define NUM_PXLS 3                        // rgb = 3 bytes
-#define NUM_LEDS 10                       // number of hardware leds
-#define LED_SIZE (NUM_LEDS * NUM_PXLS)    // total size in bytes
+// ===== CONSTANT ========================================================================
+#define BAUD_RATE 9600                      // debug connection
+#define DMX_SIZE 512                        // dmx universe size (always 512)
+#define DATA_PIN 5                          // hardware data pin
+#define NUM_PXLS 3                          // rgb = 3 bytes
+// =======================================================================================
 
-// DMX params
-#define UNIVERSE 5                        // DMX universe
-#define ADDR_OFFSET 0                     // address offset in said universe
-#define NUM_GROUPS 10                     // this sets number of pixels
+// ----- Wifi credentials ----------------------------------------------------------------
+#define WIFI_SSID "Ledique"                 // wifi ssid (the same network as sacn master)
+#define WIFI_PASS "dasenebipovezau"         // wifi password
+// ---------------------------------------------------------------------------------------
+
+// ----- Hardware LED params -------------------------------------------------------------
+#define NUM_LEDS 10                        // number of hardware leds
+#define LED_SIZE (NUM_LEDS * NUM_PXLS)      // total size in bytes
+// ---------------------------------------------------------------------------------------
+
+// ----- DMX params ----------------------------------------------------------------------
+#define UNIVERSE 5                         // DMX universe
+#define ADDR_OFFSET 0                       // address offset in said universe
+#define NUM_GROUPS 10                      // this sets number of pixels
+// ---------------------------------------------------------------------------------------
 
 // we cant have more groups than leds
 #if NUM_GROUPS > NUM_LEDS
   #define NUM_GROUPS NUM_LEDS
 #endif
-
-// CONSTANT
-#define BAUD_RATE 9600                    // debug connection
-#define DMX_SIZE 512                      // dmx universe size (always 512)
-#define DATA_PIN 5                        // hardware data pin
-
-// Wifi credentials
-#define WIFI_SSID "Ledique"               // wifi ssid (the same network as sacn master)
-#define WIFI_PASS "dasenebipovezau"       // wifi password
 
 
 void recv_dmxReceived();

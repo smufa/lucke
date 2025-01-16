@@ -29,7 +29,7 @@ void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfG
   universe = uni;
   dmxAddrOffset = dmxAddressOffset;
   numGroups = numberOfGroups;
-
+  // setupWifi();
   static bool inited = false;
 
   if(!inited) {
@@ -40,7 +40,7 @@ void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfG
     setupSacn();
 
     mutex = xSemaphoreCreateMutex();
-    cled = &FastLED.addLeds<WS2815, DATA_PIN, RGB>((CRGB *)ledBuffer, NUM_LEDS);
+    cled = &FastLED.addLeds<WS2812B, DATA_PIN, RGB>((CRGB *)ledBuffer, NUM_LEDS);
 
     inited = true;
   }

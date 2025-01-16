@@ -18,16 +18,10 @@ void playIdleAnimation(void *)
 {
   while (true)
   {
-#define BRIGHTNESS 255
-#define WIFIANI_SLEEP 5
-#ifdef STANDALONE
-  #define BRIGHTNESS 40
-  #define WIFIANI_SLEEP 50
-#endif
     uint8_t* ledBuffer = Controller::get().getLEDBuffer();
-    ledBuffer[((millis() / 50) % LED_SIZE)] = BRIGHTNESS;
-    ledBuffer[(((millis() / 50) -1) % LED_SIZE)] = 0;
-    vTaskDelay(WIFIANI_SLEEP);
+    ledBuffer[((millis() / 10) % LED_SIZE)] = WIFI_BRIGHTNESS;
+    ledBuffer[(((millis() / 10) % LED_SIZE) - 1) % LED_SIZE] = 0;
+    vTaskDelay(5);
   }
 }
 
