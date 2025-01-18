@@ -95,6 +95,9 @@ public:
   void sendUdpPacket(JsonDocument& doc);
   void sendReport();
 
+  // ledstrip interactions
+  inline void clear() { memset(ledBuffer, 0, LED_SIZE); FastLED.show(); }
+
   // threading functions
   void newPacket();
   void printNewRecv();

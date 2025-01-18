@@ -49,6 +49,8 @@ void checkNetwork(void *)
       // connection established
       LOG("Connected\n");
       vTaskDelete(animation);
+      Controller::get().clear();
+      Controller::get().updateLoop();
     }
     vTaskDelay(100);
   }
