@@ -1,35 +1,10 @@
 #include "Controller.h"
 
-void recv_dmxReceived()
-{
-  Controller::get().newPacket();
-}
-
-void recv_newSource()
-{
-  Controller::get().printNewRecv();
-}
-
-void recv_framerate()
-{
-  Controller::get().updateFramerate();
-}
-
-void recv_seqdiff()
-{
-  Controller::get().seqDiff();
-}
-
-void recv_timeOut()
-{
-  // Serial.println("Timeout!");
-}
 
 void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfGroups) {
   universe = uni;
   dmxAddrOffset = dmxAddressOffset;
   numGroups = numberOfGroups;
-  // setupWifi();
   static bool inited = false;
 
   if(!inited) {
@@ -40,7 +15,7 @@ void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfG
     setupSacn();
 
     mutex = xSemaphoreCreateMutex();
-    cled = &FastLED.addLeds<WS2812B, DATA_PIN, RGB>((CRGB *)ledBuffer, NUM_LEDS);
+    cled = &FastLED.addLeds<LED_TYPE, DATA_PIN, RGB>((CRGB *)ledBuffer, NUM_LEDS);
 
     inited = true;
   }
@@ -68,19 +43,19 @@ void Controller::setupWifi() {
 void Controller::setupSacn() {
   // setup sacn
   recv = new Receiver(udp);
-  recv->callbackDMX(recv_dmxReceived);
-  recv->callbackSource(recv_newSource);
-  recv->callbackFramerate(recv_framerate);
-  recv->callbackSeqDiff(recv_seqdiff);
-  recv->callbackTimeout(recv_timeOut);
+  recv->callbackDMX([](){ Controller::get().newPacket(); });
+  recv->callbackSource([](){ Controller::get().printNewRecv(); });
+  recv->callbackFramerate([](){ Controller::get().updateFramerate(); });
+  recv->callbackSeqDiff([](){ Controller::get().seqDiff(); });
+  recv->callbackTimeout([](){});
   recv->begin(universe);
 }
 
 void Controller::update() {
-  uint16_t groupSize = NUM_LEDS / NUM_GROUPS;
+  uint16_t groupSize = NUM_LEDS / numGroups;
   uint16_t ledIndex = 0;
 
-  for (uint16_t i = 0; i < NUM_GROUPS; i++) {
+  for (uint16_t i = 0; i < numGroups; i++) {
     for (uint16_t j = 0; j < groupSize; j++) {
       for (uint16_t k = 0; k < NUM_PXLS; k++) {
         // check if in bounds
@@ -97,33 +72,10 @@ void Controller::updateLoop() {
   FastLED.show();
 }
 
-// void Controller::playIdleAnimation() {
-//   ledBuffer[((millis() / 10) % (NUM_LEDS * 3))] = 255;
-//   ledBuffer[((millis() / 10) % (NUM_LEDS * 3)) - 1] = 0;  
-// }
-
-// void Controller::checkNetwork() { 
-//   if (WiFi.status() != WL_CONNECTED)
-//   {
-//     TaskHandle_t animation = NULL;
-//     LOG("Lost connection\n");
-//     xTaskCreate(
-//         playIdleAnimation, // Task function
-//         "Animation",       // Name of the task (for debugging)
-//         5000,              // Stack size in words
-//         NULL,              // Parameter passed to the task
-//         2,                 // Task priority
-//         &animation         // Handle to the task
-//     );
-//     while (WiFi.status() != WL_CONNECTED)
-//     {
-//       vTaskDelay(100);
-//     }
-    
-//     LOG("Connected\n");
-//     vTaskDelete(animation);
-//   }
-// }
+void Controller::playIdleAnimation() {
+  ledBuffer[((millis() / 10) % LED_SIZE)] = WIFI_BRIGHTNESS;
+  ledBuffer[(((millis() / 10) % LED_SIZE) - 1) % LED_SIZE] = 0;  
+}
 
 void Controller::clearDiffQueue(JsonArray& jarray) {
   if (xSemaphoreTake(mutex, portMAX_DELAY) == pdTRUE)
@@ -140,7 +92,6 @@ void Controller::clearDiffQueue(JsonArray& jarray) {
 void Controller::sendUdpPacket(JsonDocument& doc) {
   udp.beginPacket(WiFi.broadcastIP(), 12345);
   serializeJson(doc, udp);
-  // udp.printf("heap %d, cycle: %d, chip cores: %d, PSram: %d, CPU Freq %d, heapsize: %d, maxHeap: %d, maxPSram: %d", ESP.getFreeHeap(), ESP.getCycleCount(), ESP.getChipCores(), ESP.getFreePsram(), ESP.getCpuFreqMHz(), ESP.getHeapSize(), ESP.getMinFreeHeap(), ESP.getMinFreePsram());
   udp.endPacket();
 }
 
