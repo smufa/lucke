@@ -1,7 +1,7 @@
 #include "Controller.h"
 
-
-void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfGroups) {
+#if DIMENSION == DIMENSION_1D
+void Controller::init(uint16_t numberOfGroups, uint8_t uni, uint16_t dmxAddressOffset) {
   universe = uni;
   dmxAddrOffset = dmxAddressOffset;
   numGroups = numberOfGroups;
@@ -15,7 +15,7 @@ void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfG
     setupSacn();
 
     mutex = xSemaphoreCreateMutex();
-    cled = &FastLED.addLeds<LED_TYPE, DATA_PIN, RGB>((CRGB *)ledBuffer, NUM_LEDS);
+    cled = &FastLED.addLeds<LED_TYPE, DATA_PIN, LED_ORDER>((CRGB *)ledBuffer, NUM_LEDS);
 
     inited = true;
   }
@@ -24,6 +24,33 @@ void Controller::init(uint8_t uni, uint16_t dmxAddressOffset, uint16_t numberOfG
     setupSacn();
   }
 }
+#else
+void Controller::init(int wsize, int hsize, int width, int height, uint8_t uni, uint16_t dmxAddressOffset) 
+{
+  universe = uni;
+  dmxAddrOffset = dmxAddressOffset;
+  static bool inited = false;
+
+  if(!inited) {
+#ifdef ENABLE_LOGGING
+    Serial.begin(BAUD_RATE);
+#endif
+    setupWifi();
+    setupSacn();
+    grid = Grid(wsize, hsize, width, height);
+
+    mutex = xSemaphoreCreateMutex();
+    cled = &FastLED.addLeds<LED_TYPE, DATA_PIN, LED_ORDER>((CRGB *)ledBuffer, NUM_LEDS);
+
+    inited = true;
+  }
+  else {
+    delete recv;
+    setupSacn();
+  }
+}
+
+#endif
 
 void Controller::setupWifi() {
   // setup mac address
@@ -51,6 +78,8 @@ void Controller::setupSacn() {
   recv->begin(universe);
 }
 
+#if DIMENSION == DIMENSION_1D
+
 void Controller::update() {
   uint16_t groupSize = NUM_LEDS / numGroups;
   uint16_t ledIndex = 0;
@@ -66,6 +95,26 @@ void Controller::update() {
     }
   }
 }
+
+#else
+
+void Controller::update(){
+  for(uint16_t y = 0; y < grid.nh; y++) {
+    for(uint16_t x = 0; x < grid.nw; x++) {
+      const auto& indexes = grid.getGridIndexes(x,y);
+      int dmxIndex = dmxAddrOffset + (x * NUM_PXLS) + (y * NUM_PXLS) * grid.nw;
+      // printf("dmxIndex = %d\n", dmxIndex);
+      for(auto index : indexes) {
+        for (uint16_t k = 0; k < NUM_PXLS; k++) {
+          // LOGF("led[%d] = dmx [%d]\n", (index * NUM_PXLS + k), (dmxIndex + k));
+          ledBuffer[index * NUM_PXLS + k] = dmxBuffer[dmxIndex + k]; 
+        }
+      }
+    }
+  }
+}
+
+#endif
 
 void Controller::updateLoop() {
   recv->update();
