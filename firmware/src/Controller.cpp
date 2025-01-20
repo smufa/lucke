@@ -1,6 +1,5 @@
 #include "Controller.h"
 
-#if DIMENSION == DIMENSION_1D
 void Controller::init(uint16_t numberOfGroups, uint8_t uni, uint16_t dmxAddressOffset) {
   universe = uni;
   dmxAddrOffset = dmxAddressOffset;
@@ -24,9 +23,8 @@ void Controller::init(uint16_t numberOfGroups, uint8_t uni, uint16_t dmxAddressO
     setupSacn();
   }
 }
-#else
-void Controller::init(int wsize, int hsize, int width, int height, uint8_t uni, uint16_t dmxAddressOffset) 
-{
+
+void Controller::init2D(int wsize, int hsize, int width, int height, uint8_t uni, uint16_t dmxAddressOffset) {
   universe = uni;
   dmxAddrOffset = dmxAddressOffset;
   static bool inited = false;
@@ -37,7 +35,6 @@ void Controller::init(int wsize, int hsize, int width, int height, uint8_t uni, 
 #endif
     setupWifi();
     setupSacn();
-    grid = Grid(wsize, hsize, width, height);
 
     mutex = xSemaphoreCreateMutex();
     cled = &FastLED.addLeds<LED_TYPE, DATA_PIN, LED_ORDER>((CRGB *)ledBuffer, NUM_LEDS);
@@ -46,11 +43,35 @@ void Controller::init(int wsize, int hsize, int width, int height, uint8_t uni, 
   }
   else {
     delete recv;
+    grid = Grid(wsize, hsize, width, height);
     setupSacn();
   }
 }
+// void Controller::init(int wsize, int hsize, int width, int height, uint8_t uni, uint16_t dmxAddressOffset) 
+// {
+//   universe = uni;
+//   dmxAddrOffset = dmxAddressOffset;
+//   static bool inited = false;
 
-#endif
+//   if(!inited) {
+// #ifdef ENABLE_LOGGING
+//     Serial.begin(BAUD_RATE);
+// #endif
+//     setupWifi();
+//     setupSacn();
+//     grid = Grid(wsize, hsize, width, height);
+
+//     mutex = xSemaphoreCreateMutex();
+//     cled = &FastLED.addLeds<LED_TYPE, DATA_PIN, LED_ORDER>((CRGB *)ledBuffer, NUM_LEDS);
+
+//     inited = true;
+//   }
+//   else {
+//     delete recv;
+//     setupSacn();
+//   }
+// }
+
 
 void Controller::setupWifi() {
   // setup mac address

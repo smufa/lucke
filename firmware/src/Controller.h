@@ -43,7 +43,7 @@
 
 #define NUM_GROUPS NUM_LEDS               // this sets number of pixels
 #if DIMENSION == DIMENSION_2D
-  #define GRID_WSIZE 2
+  #define GRID_WSIZE 1
   #define GRID_HSIZE 2
   #define GRID_WIDTH 8
   #define GRID_HEIGHT 8
@@ -130,17 +130,17 @@ public:
   }
 
   // main init function; class can be reinitialised
-#if DIMENSION == DIMENSION_1D
+// #if DIMENSION == DIMENSION_1D
   void init(uint16_t numberOfGroups = NUM_LEDS, uint8_t uni = UNIVERSE, uint16_t dmxAddressOffset = ADDR_OFFSET);
-#else
-  void init(
+// #else
+  void init2D(
             int wsize = GRID_WSIZE, 
             int hsize = GRID_HSIZE, 
             int width = GRID_WIDTH, 
             int height = GRID_HEIGHT,
             uint8_t uni = UNIVERSE, 
             uint16_t dmxAddressOffset = ADDR_OFFSET); 
-#endif
+// #endif
   
   // retrieve dmx data
   void updateLoop();
@@ -166,9 +166,7 @@ private:
   uint8_t universe = UNIVERSE;
   uint16_t dmxAddrOffset = ADDR_OFFSET;
 
-#if DIMENSION == DIMENSION_1D
   uint16_t numGroups = NUM_GROUPS;
-#endif
 
   uint8_t ledBuffer[LED_SIZE] = {};
   uint8_t dmxBuffer[DMX_SIZE] = {};  

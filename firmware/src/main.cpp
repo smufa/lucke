@@ -67,7 +67,7 @@ void dmxLoop(void *)
 void setup()
 {  
   // initialise the contorller
-  Controller::get().init();
+  Controller::get().init2D();
 
   // create all tasks
   xTaskCreate(dmxLoop, "DMX", 5000, NULL, 3 | portPRIVILEGE_BIT, NULL);
