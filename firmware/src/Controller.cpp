@@ -1,5 +1,6 @@
 #include "Controller.h"
 
+#if DIMENSION == DIMENSION_1D
 void Controller::init(uint16_t numberOfGroups, uint8_t uni, uint16_t dmxAddressOffset) {
   universe = uni;
   dmxAddrOffset = dmxAddressOffset;
@@ -23,7 +24,7 @@ void Controller::init(uint16_t numberOfGroups, uint8_t uni, uint16_t dmxAddressO
     setupSacn();
   }
 }
-
+#else
 void Controller::init2D(int wsize, int hsize, int width, int height, uint8_t uni, uint16_t dmxAddressOffset) {
   universe = uni;
   dmxAddrOffset = dmxAddressOffset;
@@ -47,6 +48,7 @@ void Controller::init2D(int wsize, int hsize, int width, int height, uint8_t uni
     setupSacn();
   }
 }
+#endif
 // void Controller::init(int wsize, int hsize, int width, int height, uint8_t uni, uint16_t dmxAddressOffset) 
 // {
 //   universe = uni;

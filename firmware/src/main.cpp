@@ -67,8 +67,11 @@ void dmxLoop(void *)
 void setup()
 {  
   // initialise the contorller
+  #if DIMENSION == DIMENSION_1D
+  Controller::get().init();
+  #else
   Controller::get().init2D();
-
+  #endif
   // create all tasks
   xTaskCreate(dmxLoop, "DMX", 5000, NULL, 3 | portPRIVILEGE_BIT, NULL);
   xTaskCreate(checkNetwork, "Wifi check", 2000, NULL, 2 | portPRIVILEGE_BIT, NULL);
